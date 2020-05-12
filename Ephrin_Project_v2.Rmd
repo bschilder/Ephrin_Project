@@ -1,0 +1,298 @@
+---
+title: "Ephrin_Project"
+author: "Brian Schilder"
+date: "3/14/2017"
+output: 
+  html_document: 
+    toc: yes
+---
+
+* __RNAseq data: EPHA7__ 
+    + start.position:93969071 (126 bp length) = specific to 610aa truncated isoform = Exon_8
+    + start.positions:93949737-93967816 = specific to full length isoform = Exons_1-7
+
+* __Microarray data: EPHA7__
+    + start.position:93969074 (77bp length) = specific to 610aa truncated isoform = Exon_8
+    + start.positions:93953170-93967835 = specific to full length isoform = Exons_1-7
+
+# Specify Gene and Exons of Interest
+```{r, message=F,warning=F}
+# *** SPECIFY GENE NAME ***
+  gene_name <- "LEF1"
+
+# Specify exons to plot (e.g. "Exon_1", "Exon_2", etc.)
+  ## To identify which exons you want, go to ABA BrainSpan, search for your gene, click on the gene to the left of the heatmap, and the click on the blue link with the gene name above. http://www.brainspan.org/rnaseq/search/index.html
+  # Single-Exon Plots
+  Exon.One <- "Exon_1"
+  # Two-Exon Plots
+  Exon.Two1 <- "Exon_1"
+  Exon.Two2 <- "Exon_2"
+  # Three-Exon Plots
+  Exon.Three1 <- "Exon_1"
+  Exon.Three2 <- "Exon_2"
+  Exon.Three3 <- "Exon_7"
+```
+
+# Proceeding to Analyze Gene: ... `r gene_name`
+
+# Import Allen Brain Atlas data
+```{r, message=F, warning=F}
+#library(readxl)
+# ABA MICROARRAY DATA
+
+## All data: Gene level
+#micro_EPHA7 <- read_excel("/Users/schilder/Desktop/Dissertation/Gene_Expression/ABA_Microarray_data.xlsx", na = "NA", sheet = paste(gene_name))
+ #   micro_EPHA7$donor_age <- factor(micro_EPHA7$donor_age, levels=c("E40","E50","E70","E80","E90","E120","0 mo","3 mo","12 mo","48 mo", "24 years","31 years","39 years","49 years","55 years","57 years"), ordered=T)
+
+## EPHA7 only exon level
+  # http://www.brainspan.org/rnaseq/gene/1093963
+#- micro.ex_SampleInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/Microarray_exons_EPHA7/Columns.csv")
+#- micro.ex_Expression <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/Microarray_exons_EPHA7/Expression.csv", header=F)
+#- micro.ex_ExonInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/Microarray_exons_EPHA7/Rows.csv")
+
+# ABA RNASEQ DATA
+
+## All data: Gene level
+  ### RNAseq_EPHA7 <- read_excel("/Users/schilder/Desktop/Dissertation/Gene_Expression/ABA_RNAseq_data.xlsx", na = "NA", sheet = paste(gene_name))
+
+## All data: Exon level: http://www.brainspan.org/static/download.html
+#RNAseq.ex_SampleInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/exons_matrix_csv/columns_metadata.csv")
+#RNAseq.ex_Expression <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/exons_matrix_csv/expression_matrix.csv", header=F)
+#RNAseq.ex_ExonInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/exons_matrix_csv/rows_metadata.csv")
+#save.image("ABA_RNAseq_exons_full.RData")
+load("/Users/schilder/Desktop/Research/Ephrin_Project/exons_matrix_csv/ABA_RNAseq_exons_full.RData")
+
+## EPHA7 only: exon level
+ ### http://www.brainspan.org/rnaseq/gene/1093963
+#* RNAseq.ex_SampleInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/RNAseq_exons_EPHA7/Columns.csv")
+#* RNAseq.ex_Expression <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/RNAseq_exons_EPHA7/Expression.csv", header=F)
+#* RNAseq.ex_ExonInfo <- read.csv("/Users/schilder/Desktop/Research/Ephrin_Project/RNAseq_exons_EPHA7/Rows.csv")
+
+sum(is.na(RNAseq.ex_Expression))
+sum(RNAseq.ex_Expression == 0)
+```
+
+## Combine Files
+```{r, message=F, warning=F}
+## RNASEQ (single-gene data method)
+# Assign each exon a name
+#- RNAseq.ex_ExonInfo$ExonID <- factor(c(paste("Exon", 1:length(RNAseq.ex_ExonInfo$start.position),sep="_")), ordered=T)
+# Transpose expression data
+#- trans <- t(RNAseq.ex_Expression[-1])
+# Rename rows as ExonIDs
+#- colnames(trans) <- RNAseq.ex_ExonInfo$ExonID
+# Combine with sample Info
+#- RNAseq_data <- cbind(RNAseq.ex_SampleInfo, trans)
+  # Order age
+#-  RNAseq_data$donor_age <- factor(RNAseq_data$donor_age, levels=c('8 pcw','9 pcw','12 pcw','13 pcw','16 pcw','17 pcw','19 pcw','21 pcw','24 pcw','25 pcw','26 pcw','35 pcw','37 pcw','4 mos','10 mos','1 yrs','2 yrs','3 yrs','4 yrs','8 yrs','11 yrs','13 yrs','15 yrs','18 yrs','19 yrs','21 yrs','23 yrs','30 yrs','36 yrs','37 yrs','40 yrs'), ordered=T)
+  
+# Whole dataset method  
+Exon_Exprs <- cbind(RNAseq.ex_ExonInfo, RNAseq.ex_Expression[-1])
+Exon_Exprs.sub <- subset(Exon_Exprs, gene_symbol==paste(gene_name))
+## Change units from RPKM -> log2 RPKM (+1 to avoid -inf)
+  Exon_Exprs.sub[,8:length(Exon_Exprs.sub)] <- log2(Exon_Exprs.sub[,8:length(Exon_Exprs.sub)]+1)
+  #Exon_Exprs.sub[,8:length(Exon_Exprs.sub)=="-Inf"] <- "0"
+
+# Rename rows to ExonIDs
+row.names(Exon_Exprs.sub) <- paste("Exon", 1:length(Exon_Exprs.sub$gene_symbol),sep="_")
+Exon_Exprs.sub.t <- t(Exon_Exprs.sub[-(1:7)])
+## Combine data
+RNAseq_data <- cbind(gene_symbol=paste(gene_name), RNAseq.ex_SampleInfo[-1], Exon_Exprs.sub.t)
+# Rename and order age
+colnames(RNAseq_data)[4] <- "donor_age"
+RNAseq_data$donor_age <- factor(RNAseq_data$donor_age, levels=c('8 pcw','9 pcw','12 pcw','13 pcw','16 pcw','17 pcw','19 pcw','21 pcw','24 pcw','25 pcw','26 pcw','35 pcw','37 pcw','4 mos','10 mos','1 yrs','2 yrs','3 yrs','4 yrs','8 yrs','11 yrs','13 yrs','15 yrs','18 yrs','19 yrs','21 yrs','23 yrs','30 yrs','36 yrs','37 yrs','40 yrs'), ordered=T)
+
+```
+
+## Reshape data
+```{r, message=F, warning=F}
+library(reshape2)
+RNAseq_mel <- melt(RNAseq_data, id.vars=c('donor_id', 'donor_age','structure_name'),measure.vars = c(paste("Exon",1:length(Exon_Exprs.sub$gene_symbol),sep="_")), variable.name="Exon", value.name = "log2_RPKM") #,'top_level_structure_name'
+```
+
+# Plots
+
+## Diagnostic Plots
+```{r, message=F, warning=F}
+library(ggplot2)
+# Histograms
+## All exons together
+ggplot(RNAseq_mel, aes(x=log2_RPKM))+ geom_histogram() + labs(title="Expression Level Frequency: All Exons") + theme(plot.title = element_text(hjust = 0.5))
+## Exons faceted
+ggplot(RNAseq_mel, aes(x=log2_RPKM))+ geom_histogram() + labs(title="Expression Level Frequency: Separate Exons") + facet_wrap(~Exon) + theme(plot.title = element_text(hjust = 0.5))
+
+# Summary of overall expression
+library(dplyr)
+exprs_summ <- RNAseq_mel %>% group_by(Exon) %>%
+  summarise(Mean_expression=mean(log2_RPKM), Summed_expression=sum(log2_RPKM))
+exprs_summ
+## Mean expression plot
+ggplot(exprs_summ, aes(x=Exon, y=Mean_expression)) + geom_bar(stat="identity") + labs(title="Mean Expression Per Exon") + theme(plot.title = element_text(hjust = 0.5),axis.text.x = element_text(angle = 45, hjust = 1))
+## Summed expression plot
+ggplot(exprs_summ, aes(x=Exon, y=Summed_expression)) + geom_bar(stat="identity") + labs(title="Summed Expression Per Exon") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Each exon across development for all structures
+ggplot(RNAseq_mel, aes(x=donor_age, y=log2_RPKM, fill=structure_name)) + geom_bar(stat="identity",position="dodge") + guides(fill=guide_legend(ncol=3)) +
+  theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", legend.key.size = unit(.1, "cm"), legend.text=element_text(size=8)) + 
+  labs(title=paste(gene_name, "Expression Over Development: RNAseq\n All Exons"), x="Age", y="log2 RPKM") + stat_smooth(method="loess", aes(group=1), color="blue") + facet_wrap(~Exon)
+```
+
+## Single-Exon Plots
+
+### Developmental Plots
+```{r, message=F, warning=F}
+library(ggplot2)
+Exon = Exon.One
+#Exon = as.name('Exon_1')
+
+# RNASEQ
+## Top level structures
+#ggplot(RNAseq_data, aes(x=donor_age, y=Exon_1, fill=top_level_structure_name)) + geom_bar(stat="identity",position="dodge") +  guides(fill=F) +theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title=paste(gene_name, "Expression Over Development: RNAseq\n", Exon), x="Age", y="log2 RPKM") + facet_wrap(~ top_level_structure_name, ncol=2) + stat_smooth(method="loess", aes(group=1), color="blue")
+
+## All Structures
+ggplot(RNAseq_data, aes(x=donor_age, y=Exon_1, fill=structure_name)) + geom_bar(stat="identity",position="dodge") + guides(fill=guide_legend(ncol=3)) +
+  theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", legend.key.size = unit(.1, "cm"), legend.text=element_text(size=8)) + 
+  labs(title=paste(gene_name, "Expression Over Development: RNAseq\n", Exon), x="Age", y="log2 RPKM") + stat_smooth(method="loess", aes(group=1), color="blue")
+
+## Hippocampus only
+ggplot(data = dplyr::filter(RNAseq_data, structure_name == "hippocampus (hippocampal formation)"), aes(x=donor_age, y=Exon_1)) + geom_bar(stat="identity",position="dodge", fill="purple2") + guides(fill=F) + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title=paste(gene_name, "Expression Over Development: RNAseq\n", "Hippocampus:",Exon), x="Age", y="log2 RPKM") + stat_smooth(method="loess", aes(group=1), color="blue")
+
+```
+
+## Two-Exon Plots
+
+### Filter Two Exons of Interest
+```{r, message=F, warning=F}
+RNAseq_melt <- RNAseq_melt2 <- dplyr::filter(RNAseq_mel, Exon==paste(Exon.Two1)|Exon==paste(Exon.Two2))
+```
+
+### Developmental Plots
+```{r, message=F,warning=F, fig.width=12, fig.height=6}
+# Top level structures
+#ggplot(RNAseq_melt, aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) + labs(title=paste(gene_name,"Expression Over Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=c("turquoise3", "slateblue4")) + facet_wrap(~top_level_structure_name) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = c("turquoise1", "slateblue1"))
+
+# All structures
+ggplot(RNAseq_melt, aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1), text=element_text(size=8)) +
+  labs(title=paste(gene_name,"Expression Over Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=c("turquoise3", "slateblue4")) + facet_wrap(~structure_name) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = c("turquoise1", "slateblue1"))
+
+# Hippocampus only
+ggplot(data = dplyr::filter(RNAseq_melt, structure_name == "hippocampus (hippocampal formation)"), aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title=paste(gene_name,"Expression Over Hippocampal Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=c("turquoise3", "slateblue4")) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = c("turquoise1", "slateblue1"))
+```
+
+
+## Three-Exon Plots
+
+### Filter Three Exons of Interest
+```{r, message=F, warning=F}
+RNAseq_melt <- RNAseq_melt3 <- dplyr::filter(RNAseq_mel, Exon==paste(Exon.Three1)|Exon==paste(Exon.Three2)|Exon==paste(Exon.Three3))
+  # issue: currently produces empty df if it can't find at least 1 instance for each group. Try using alt method (e.g. subset) to avoid this.
+
+# Select colors for each exon
+fill_colors = c("seagreen4", "slateblue4", "violetred3")
+fit_colors = c("seagreen1", "slateblue1", "magenta")
+```
+
+### Developmental Plots
+```{r, message=F,warning=F, fig.width=12, fig.height=6}
+# Top level structures
+#ggplot(RNAseq_melt, aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) +labs(title=paste(gene_name,"Expression Over Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=fill_colors) + facet_wrap(~top_level_structure_name) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = fit_colors)
+
+# All structures
+ggplot(RNAseq_melt, aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1), text=element_text(size=8)) +
+  labs(title=paste(gene_name,"Expression Over Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=fill_colors) + facet_wrap(~structure_name) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = fit_colors)
+
+# Hippocampus only
+ggplot(data = dplyr::filter(RNAseq_melt, structure_name == "hippocampus (hippocampal formation)"), aes(x=donor_age, y=log2_RPKM, fill=Exon)) + geom_bar(stat="identity",position="dodge") + theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title=paste(gene_name,"Expression Over Hippocampal Development: RNAseq\n","Exon Expression"), x="Age", y="log2 RPKM") + geom_smooth() + scale_fill_manual(values=fill_colors) + stat_smooth(method="loess", aes(group=Exon, color=Exon)) + scale_color_manual(values = fit_colors)
+```
+
+# Inter-Exon Analyses
+
+## Two-Exon Analyses
+```{r, message=F, warning=F}
+# Switch dataset
+RNAseq_melt <- RNAseq_melt2
+
+# Exon vs. Expression
+Exon_aov <- aov(data=RNAseq_melt, log2_RPKM ~ Exon)
+summary(Exon_aov)
+# Structure vs. Expression
+Struct_aov <- aov(data=RNAseq_melt, log2_RPKM ~ structure_name)
+summary(Struct_aov)
+# Age vs. Expression
+Age_aov <- aov(data=RNAseq_melt, log2_RPKM ~ donor_age)
+summary(Age_aov)
+# Exon + Structure + Age vs. Expression
+Exon.Struct.Age_aov <- aov(data=RNAseq_melt, log2_RPKM ~ Exon+structure_name+donor_age)
+summary(Exon.Struct.Age_aov)
+  # Post-hoc
+  Tuk <- TukeyHSD(Exon.Struct.Age_aov)
+  Tuk$Exon
+  Tuk$structure_name
+  Tuk$donor_age
+```
+
+## Three-Exon Analyses
+```{r, message=F, warning=F}
+# Switch dataset
+RNAseq_melt <- RNAseq_melt3
+
+# Exon vs. Expression
+Exon_aov <- aov(data=RNAseq_melt, log2_RPKM ~ Exon)
+summary(Exon_aov)
+# Structure vs. Expression
+Struct_aov <- aov(data=RNAseq_melt, log2_RPKM ~ structure_name)
+summary(Struct_aov)
+# Age vs. Expression
+Age_aov <- aov(data=RNAseq_melt, log2_RPKM ~ donor_age)
+summary(Age_aov)
+# Exon + Structure + Age vs. Expression
+Exon.Struct.Age_aov <- aov(data=RNAseq_melt, log2_RPKM ~ Exon+structure_name+donor_age)
+summary(Exon.Struct.Age_aov)
+  # Post-hoc
+  Tuk <- TukeyHSD(Exon.Struct.Age_aov)
+  Tuk$Exon
+  Tuk$structure_name
+  Tuk$donor_age
+```
+
+# ABA package within Bioconductor
+```{r, message=F, warning=F}
+## load package
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("ABAEnrichment")
+#- require(ABAData)
+
+## require averaged gene expression data (microarray) from adult human brain regions
+#- data(dataset_adult)
+    ## look at first lines
+    #- head(dataset_adult)
+## require averaged gene expression data (RNA-seq) for 5 age categories
+#- data(dataset_5_stages)
+    ## look at first lines
+    #- head(dataset_5_stages)
+## require developmental effect score for genes in brain regions
+#- data(dataset_dev_effect)
+    ## look at first lines
+    #- head(dataset_dev_effect)
+    
+    
+## load ABAEnrichment package
+#- require(ABAEnrichment)
+## create input vector with candidate genes 
+#- gene_list=c('EPHA7', 'EFNB1')
+#- genes=rep(1,length(gene_list))
+#- names(genes)=c('EPHA7', 'EFNB1')
+#- genes
+
+## run enrichment analysis
+#- res=aba_enrich(genes,dataset='5_stages',cutoff_quantiles=c(0.5,0.7,0.9),n_randsets=100)
+## extract first element from the output list, which contains the statistics
+#- fwers=res[[1]]
+## see results for the brain regions with highest enrichment for children (3-11 yrs, age_category 3)
+#- head(fwers[fwers[,1]==3,])
+
+#- res[2:3] #In addition to the statistics, the list that is returned from aba_enrich also contains the input genes for which expression data is available and for each age category the gene expression values that correspond to the requested cutoff_quantiles
+```
